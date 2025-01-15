@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Strategy Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+    <style>
+        .toggle-button {
+            transition: all 0.3s ease;
+        }
+        
+        .slider-container {
+            background: #eaedf1;
+            border-radius: 10px;
+            position: relative;
+            padding: 12px;
+        }
+        
+        .slider-button {
+            position: absolute;
+            transition: transform 0.3s ease;
+            background: #3b82f6;
+            border-radius: 15px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .date-list {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.3s ease-out;
+        }
+
+        .date-list.active {
+            max-height: 500px;
+        }
+
+        .date-toggle {
+            position: relative;
+            cursor: pointer;
+        }
+
+        .date-toggle::after {
+            content: '';
+            position: absolute;
+            right: 1rem;
+            top: 50%;
+            transform: translateY(-50%) rotate(0deg);
+            border-left: 8px solid transparent;
+            border-right: 8px solid transparent;
+            border-top: 8px solid #3d20dd;
+            transition: transform 0.3s ease;
+        }
+
+        .date-toggle.active::after {
+            transform: translateY(-50%) rotate(180deg);
+        }
+
+        @media (max-width: 640px) {
+            .slider-container {
+                height: 48px;
+            }
+            .toggle-button {
+                font-size: 0.75rem;
+            }
+        }
+        
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen">
+    <div class="max-w-3xl mx-auto px-4 py-6 space-y-6">
+        <!-- View Toggle -->
+        <div class="slider-container w-full h-12" style="height: 4rem;">
+            <div class="slider-button h-[40px] w-[25%]"></div>
+            <div class="relative z-10 flex justify-between text-sm">
+                <button class="toggle-button flex-1 py-2 text-center rounded-full font-medium text-white" data-view="Bullish">Bullish</button>
+                <button class="toggle-button flex-1 py-2 text-center rounded-full font-medium" data-view="Bearish">Bearish</button>
+                <button class="toggle-button flex-1 py-2 text-center rounded-full font-medium" data-view="RangeBound">Range Bound</button>
+                <button class="toggle-button flex-1 py-2 text-center rounded-full font-medium" data-view="Volatile">Volatile</button>
+            </div>
+        </div>
+
+        <!-- Date Selection -->
+        <div class="relative bg-white rounded-lg shadow-sm">
+            <div id="dateToggle" class="date-toggle p-4 bg-white rounded-lg text-gray-700" style="font-weight: 700;">
+                Select Date
+            </div>
+            <ul id="dateList" class="date-list divide-y divide-gray-100">
+            </ul>
+        </div>
+
+        <!-- Strategy Cards Container -->
+        <div id="strategyCards" class="space-y-4 w-full">
+        </div>
+
+        <!-- Empty State -->
+        <div id="emptyState" class="hidden text-center py-12">
+            <div class="flex flex-col items-center justify-center p-8 bg-white rounded-lg shadow-sm">
+                <p class="mt-4 text-gray-500 font-medium">There are no strategies for</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const dateArray = ['24-Apr-2024','02-May-2024','09-May-2024','31-May-2024','21-Jun-2024'];
+        const strategyArray = [{"View":"Bullish","Value":{"24-Apr-2024":["Bull Call Spread","Bull Put Spread","Bull Put Spread","Long Call","Bull Put Spread","Bull Call Spread","Strategy1","Bull Call Spread","Strategy1","Strategy1","SpreadStrategy","Bull Call Spread"],"02-May-2024":["Bull Call Spread","Bull Call Spread","Bull Put Spread","Long Call","Long Call","Long Call","Bull Put Spread","Bull Call Spread","Strategy1","Bull Call Spread","Strategy2","Strategy1","Strategy2","Bull Call Spread"],"09-May-2024":["Strategy Put","Strategy Call","Strategy Call","Strategy Call","Strategy Put"]}},{"View":"Bearish","Value":{"24-Apr-2024":["Bear Call Spread","Bear Call Spread","Bear Call Spread","Long Put","Long Put","Long Put","Bear Call Spread"],"31-May-2024":["Long Put","Long Put","Long Put","Long Put","Long Put"],"21-Jun-2024":["Strategy3","Strategy3","Bear Put Spread","Strategy3","Long Put","Long Put"]}},{"View":"RangeBound","Value":{"24-Apr-2024":["Short Straddle","Short Strangle","Short Strangle","Iron Butterfly","Short Strangle","Short Straddle","Strategy1","Short Straddle","Strategy1","Strategy1","SpreadStrategy","Short Straddle"],"02-May-2024":["Short Straddle","Short Straddle","Short Strangle","Iron Butterfly","Iron Butterfly","Iron Butterfly","Short Strangle","Short Straddle","Strategy1","Short Straddle","Strategy2","Strategy1","Strategy2","Short Straddle"],"21-Jun-2024":["Iron Condor","Iron Butterfly","Iron Butterfly","Iron Butterfly","Iron Condor"]}},{"View":"Volatile","Value":{"02-May-2024":["Long Straddle","Long Strangle","Long Strangle","Long Strangle","Long Straddle","Strategy1","Long Straddle","Strategy1","Strategy1","Spread-Strategy","Long Straddle"],"09-May-2024":["Long Straddle","Long Straddle","Long Strangle","Long Strangle","Long Straddle","Strategy1","Long Straddle","Strategy2","Strategy1","Strategy2","Long Straddle"],"31-May-2024":["Long Straddle","Long Strangle","Long Strangle","Long Strangle","Long Straddle"]}}];
+
+        let currentView = 'Bullish';
+        let selectedDate = dateArray[0];
+
+        // Initialize date list
+        const dateList = document.getElementById('dateList');
+        const dateToggle = document.getElementById('dateToggle');
+        
+        dateArray.forEach(date => {
+            const li = document.createElement('li');
+            li.className = 'p-4 hover:bg-gray-50 cursor-pointer transition-colors';
+            li.style.border = '10px solid #F3F4F6';
+            li.style.fontWeight = '700';
+            li.style.borderRadius = '5px';
+
+            li.textContent = date;
+            li.addEventListener('click', () => {
+                selectedDate = date;
+                dateToggle.textContent = date;
+                dateList.classList.remove('active');
+                dateToggle.classList.remove('active');
+                renderStrategyCards();
+            });
+            dateList.appendChild(li);
+        });
+
+        // Date toggle functionality
+        dateToggle.addEventListener('click', () => {
+            dateList.classList.toggle('active');
+            dateToggle.classList.toggle('active');
+        });
+
+        // View toggle functionality
+        const toggleButtons = document.querySelectorAll('.toggle-button');
+        const sliderButton = document.querySelector('.slider-button');
+
+        toggleButtons.forEach((button, index) => {
+            button.addEventListener('click', () => {
+                sliderButton.style.transform = `translateX(${index * 100}%)`;
+                toggleButtons.forEach(btn => {
+                    btn.classList.remove('text-white');
+                });
+                button.classList.add('text-white');
+                currentView = button.dataset.view;
+                renderStrategyCards();
+            });
+        });
+
+        function countStrategies(date) {
+            const viewData = strategyArray.find(item => item.View === currentView);
+            if (!viewData || !viewData.Value[date]) return {};
+
+            const strategies = {};
+            viewData.Value[date].forEach(strategy => {
+                strategies[strategy] = (strategies[strategy] || 0) + 1;
+            });
+            return strategies;
+        }
+
+        function renderStrategyCards() {
+            const cardsContainer = document.getElementById('strategyCards');
+            const emptyState = document.getElementById('emptyState');
+            const strategies = countStrategies(selectedDate);
+            
+            cardsContainer.innerHTML = '';
+            
+            if (Object.keys(strategies).length === 0) {
+                cardsContainer.classList.add('hidden');
+                emptyState.classList.remove('hidden');
+                const emptyMessage = emptyState.querySelector('p');
+                emptyMessage.textContent = `There are no strategies for ${selectedDate}`;
+                return;
+            }
+
+            cardsContainer.classList.remove('hidden');
+            emptyState.classList.add('hidden');
+
+            Object.entries(strategies).forEach(([name, count]) => {
+                const card = document.createElement('div');
+                card.className = 'bg-white p-6 rounded-lg shadow-sm hover:shadow-md transition-shadow duration-300 w-full';
+                card.style = `border: 1px solid lightgray;`
+                card.style.borderRadius = `20px`
+                card.innerHTML = `
+                    <div class="flex justify-between items-center">
+                        <h3 class="text-base sm:text-lg font-semibold text-gray-800" style="font-weight: 700;">${name}</h3>
+                        <span class="text-sm text-gray-400">
+                            &#8226; ${count} ${count === 1 ? 'Strategy' : 'Strategies'}
+                        </span>
+                    </div>
+                `;
+                cardsContainer.appendChild(card);
+            });
+        }
+
+        // Initial render
+        dateToggle.textContent = selectedDate;
+        toggleButtons[0].click(); // Select Bullish by default
+    </script>
+</body>
+</html>
